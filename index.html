@@ -50,6 +50,8 @@
         <h1 class="text-xl font-black tracking-[0.3em] text-indigo-500 uppercase text-center">Sync Runner</h1>
 
         <div id="menu" class="w-full max-w-sm bg-gray-900/60 backdrop-blur-md p-6 rounded-2xl border border-gray-800/80 text-center space-y-4 shadow-2xl">
+            <input id="nameInput" type="text" maxlength="12" placeholder="ENTER YOUR NAME" class="w-full bg-gray-950 border border-gray-800 px-4 py-3 rounded-xl focus:outline-none focus:border-indigo-500 text-center uppercase tracking-wider font-bold text-gray-200 placeholder:text-gray-600 mb-2">
+            
             <button id="createBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl font-semibold tracking-wide active:scale-95 transition-transform">Create Room</button>
             <div class="flex items-center my-2">
                 <hr class="flex-grow border-gray-800">
@@ -70,8 +72,9 @@
             <div class="w-full overflow-hidden">
                 <canvas id="gameCanvas" width="800" height="250" class="w-full"></canvas>
             </div>
-            <div class="w-full">
+            <div class="w-full flex flex-col gap-3">
                 <button id="readyBtn" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-black tracking-[0.15em] uppercase active:scale-95 transition-transform hidden">TAP TO READY UP</button>
+                <button id="rematchBtn" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-xl font-black tracking-[0.15em] uppercase active:scale-95 transition-transform hidden">REQUEST REMATCH</button>
             </div>
             <p id="mobileHint" class="text-xs text-gray-500 hidden text-center tracking-widest uppercase animate-pulse">Tap screen to jump</p>
         </div>
@@ -81,7 +84,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Your exact Firebase configuration with added databaseURL mapping
         const firebaseConfig = {
             apiKey: "AIzaSyCAmVSx7u_qETnBwlmiQkcfXmGNpiYCRxM",
             authDomain: "sync-runner.firebaseapp.com",
@@ -101,10 +103,12 @@
         const gameContainer = document.getElementById('gameContainer');
         const createBtn = document.getElementById('createBtn');
         const joinBtn = document.getElementById('joinBtn');
+        const nameInput = document.getElementById('nameInput');
         const roomInput = document.getElementById('roomInput');
         const displayCode = document.getElementById('displayCode');
         const statusText = document.getElementById('statusText');
         const readyBtn = document.getElementById('readyBtn');
+        const rematchBtn = document.getElementById('rematchBtn');
         const mobileHint = document.getElementById('mobileHint');
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -139,13 +143,25 @@
         });
 
         // Setup Event Listeners
-        createBtn.onclick = createRoom;
-        joinBtn.onclick = () => joinRoom(roomInput.value.trim().toUpperCase());
+        createBtn.onclick = () => {
+            if(!nameInput.value.trim()) { alert("PLEASE ENTER YOUR NAME FIRST!"); return; }
+            createRoom();
+        };
+        joinBtn.onclick = () => {
+            if(!nameInput.value.trim()) { alert("PLEASE ENTER YOUR NAME FIRST!"); return; }
+            joinRoom(roomInput.value.trim().toUpperCase());
+        };
         readyBtn.onclick = (e) => {
             e.stopPropagation();
             set(ref(db, `rooms/${roomCode}/players/${myId}/isReady`), true);
-            readyBtn.classList.add('opacity-50', 'pointer-events-none');
+            readyBtn.classList.add('hidden');
             statusText.innerText = "READY! WAITING FOR PEER...";
+        };
+        rematchBtn.onclick = (e) => {
+            e.stopPropagation();
+            set(ref(db, `rooms/${roomCode}/players/${myId}/wantsRematch`), true);
+            rematchBtn.classList.add('opacity-50', 'pointer-events-none');
+            rematchBtn.innerText = "WAITING FOR OPPONENT...";
         };
         window.addEventListener('touchstart', (e) => { if(isGameRunning && !myIsDead && myY === groundY) velocity = jumpStrength; });
 
@@ -160,7 +176,7 @@
                 gameStarted: false,
                 players: {}
             };
-            initialData.players[myId] = { id: myId, x: 50, y: 200, score: 0, isDead: false, isReady: false, role: 'host' };
+            initialData.players[myId] = { id: myId, name: nameInput.value.trim().toUpperCase(), x: 50, y: 200, score: 0, isDead: false, isReady: false, wantsRematch: false, role: 'host' };
             
             await set(roomRef, initialData);
             initLobby(roomCode);
@@ -179,7 +195,7 @@
 
             roomCode = code;
             isHost = false;
-            await set(ref(db, `rooms/${roomCode}/players/${myId}`), { id: myId, x: 50, y: 200, score: 0, isDead: false, isReady: false, role: 'peer' });
+            await set(ref(db, `rooms/${roomCode}/players/${myId}`), { id: myId, name: nameInput.value.trim().toUpperCase(), x: 50, y: 200, score: 0, isDead: false, isReady: false, wantsRematch: false, role: 'peer' });
             initLobby(roomCode);
             listenToRoom();
         }
@@ -199,12 +215,57 @@
                 obstacleX = data.obstacleX;
 
                 const playerIds = Object.keys(players);
+                
+                // Track Dynamic Rematch Actions
+                if (data.gameStarted === false && isGameRunning === false) {
+                    const activePlayersList = Object.values(players);
+                    if (activePlayersList.length === 2) {
+                        const myPlayerNode = players[myId];
+                        const opponentPlayerNode = activePlayersList.find(p => p.id !== myId);
+
+                        if (myPlayerNode && opponentPlayerNode) {
+                            // Check if opponent requested first
+                            if (opponentPlayerNode.wantsRematch && !myPlayerNode.wantsRematch) {
+                                rematchBtn.classList.remove('hidden');
+                                rematchBtn.innerText = `${opponentPlayerNode.name} WANTS A REMATCH! TAP TO ACCEPT`;
+                            } else if (!myPlayerNode.wantsRematch) {
+                                rematchBtn.classList.remove('hidden');
+                                rematchBtn.innerText = "REQUEST REMATCH";
+                            }
+
+                            // Trigger Rematch Session Reset if both parties opted in
+                            if (myPlayerNode.wantsRematch && opponentPlayerNode.wantsRematch) {
+                                rematchBtn.classList.add('hidden');
+                                rematchBtn.classList.remove('opacity-50', 'pointer-events-none');
+                                isGameRunning = true;
+                                myIsDead = false;
+                                myScore = 0;
+                                myY = groundY;
+                                mobileHint.classList.remove('hidden');
+                                statusText.innerText = "🔴 LIVE MATCH";
+                                if (isHost) {
+                                    update(ref(db, `rooms/${roomCode}`), { gameStarted: true });
+                                    // Flush ready configurations safely inside host container
+                                    activePlayersList.forEach(p => {
+                                        update(ref(db, `rooms/${roomCode}/players/${p.id}`), { wantsRematch: false, isDead: false, score: 0, y: 200 });
+                                    });
+                                }
+                                gameLoop();
+                            }
+                        }
+                    }
+                }
+
                 if (playerIds.length === 2 && !isGameRunning && !data.gameStarted) {
-                    readyBtn.classList.remove('hidden');
-                    statusText.innerText = "PLAYER JOINED. READY UP!";
-                    
-                    // Start match if everyone flags ready
                     const allReady = Object.values(players).every(p => p.isReady);
+                    
+                    // Simple initial ready UI display logic block
+                    const myPlayerNode = players[myId];
+                    if (myPlayerNode && !myPlayerNode.isReady && !myPlayerNode.wantsRematch) {
+                        readyBtn.classList.remove('hidden');
+                        statusText.innerText = "PLAYER JOINED. READY UP!";
+                    }
+
                     if (allReady) {
                         isGameRunning = true;
                         myIsDead = false;
@@ -223,7 +284,6 @@
                     isGameRunning = false;
                     statusText.innerText = "GAME OVER!";
                     mobileHint.classList.add('hidden');
-                    readyBtn.classList.remove('hidden', 'opacity-50', 'pointer-events-none');
                     if(isHost) update(ref(db, `rooms/${roomCode}`), { gameStarted: false });
                 }
             });
@@ -274,10 +334,13 @@
                 ctx.shadowColor = isMe ? '#6366f1' : '#10b981';
                 ctx.shadowBlur = p.isDead ? 0 : 12;
 
+                // Explicit fallback string configuration for names if database handles are still structural
+                const renderingName = p.name ? p.name : "PLAYER";
+
                 if (!p.isDead) {
                     ctx.fillRect(isMe ? 50 : 90, p.y, 22, 30);
                     ctx.fillStyle = '#9ca3af'; ctx.shadowBlur = 0; ctx.font = 'bold 11px sans-serif';
-                    ctx.fillText(isMe ? `You: ${p.score}` : `Peer: ${p.score}`, (isMe ? 50 : 90) - 10, p.y - 12);
+                    ctx.fillText(`${renderingName}: ${p.score}`, (isMe ? 50 : 90) - 10, p.y - 12);
                 } else {
                     ctx.strokeStyle = isMe ? 'rgba(99, 102, 241, 0.25)' : 'rgba(16, 185, 129, 0.25)';
                     ctx.shadowBlur = 0; ctx.strokeRect(isMe ? 50 : 90, 210, 22, 20);
@@ -287,4 +350,5 @@
         }
     </script>
 </body>
-</html>
+    </html>
+    
