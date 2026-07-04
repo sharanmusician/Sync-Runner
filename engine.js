@@ -1,4 +1,4 @@
-import { state, ui, draw } from './config.js';
+import { state, ui } from './config.js';
 import { initSinglePlayer } from './singleplayer.js';
 import { createRoom, joinRoom } from './multiplayer.js';
 import { ref, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
