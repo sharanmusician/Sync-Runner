@@ -37,7 +37,7 @@
 
     <div id="splashScreen" class="fixed inset-0 bg-[#05070f] z-50 flex flex-col items-center justify-center space-y-6 px-4">
         <div id="companyBrand" class="opacity-0 flex flex-col items-center space-y-3">
-            <img src="Logo.png" alt="Aethercore Interactive" onerror="this.style.display='none';" class="w-24 h-24 object-contain rounded-xl shadow-2xl">
+            <img src="Logo.png" alt="Aethercore Interactive Logo" class="w-24 h-24 object-contain rounded-xl shadow-2xl">
             <h2 class="text-xs font-bold uppercase tracking-[0.4em] text-gray-500">Aethercore Interactive</h2>
         </div>
         <div id="gameBrand" class="opacity-0 hidden flex flex-col items-center">
@@ -50,9 +50,9 @@
         <h1 class="text-xl font-black tracking-[0.3em] text-indigo-500 uppercase text-center">Sync Runner</h1>
 
         <div id="modeMenu" class="w-full max-w-sm bg-gray-900/60 backdrop-blur-md p-6 rounded-2xl border border-gray-800/80 text-center space-y-4 shadow-2xl">
-            <h3 class="text-sm font-bold tracking-widest text-gray-400 uppercase mb-2">Select Game Mode</h3>
-            <button id="singlePlayerBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-4 rounded-xl font-bold tracking-wider uppercase active:scale-95 transition-all shadow-lg shadow-indigo-600/10">Single Player</button>
-            <button id="multiplayerBtn" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white py-4 rounded-xl font-bold tracking-wider uppercase active:scale-95 transition-all shadow-lg shadow-purple-600/10">Multiplayer</button>
+            <h2 class="text-sm font-bold tracking-widest text-gray-400 uppercase mb-2">Select Game Mode</h2>
+            <button id="singleBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-xl font-semibold tracking-wide active:scale-95 transition-all">Single Player</button>
+            <button id="multiBtn" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-xl font-semibold tracking-wide active:scale-95 transition-all">Multiplayer (2 Players)</button>
         </div>
 
         <div id="menu" class="hidden w-full max-w-sm bg-gray-900/60 backdrop-blur-md p-6 rounded-2xl border border-gray-800/80 text-center space-y-4 shadow-2xl">
@@ -72,7 +72,7 @@
 
         <div id="gameContainer" class="hidden flex flex-col items-center space-y-4 w-full">
             <div class="flex justify-between w-full bg-gray-900/40 border border-gray-800/60 px-4 py-3 rounded-xl text-xs tracking-wider">
-                <div id="roomDisplayContainer" class="text-gray-400">ROOM: <span id="displayCode" class="font-bold text-indigo-400">----</span></div>
+                <div id="roomDisplayArea" class="text-gray-400">ROOM: <span id="displayCode" class="font-bold text-indigo-400">----</span></div>
                 <div id="statusText" class="text-gray-400 font-bold uppercase text-right">Waiting for players...</div>
             </div>
             <div class="w-full overflow-hidden">
@@ -107,8 +107,8 @@
 
         // Core Game elements
         const modeMenu = document.getElementById('modeMenu');
-        const singlePlayerBtn = document.getElementById('singlePlayerBtn');
-        const multiplayerBtn = document.getElementById('multiplayerBtn');
+        const singleBtn = document.getElementById('singleBtn');
+        const multiBtn = document.getElementById('multiBtn');
         const menu = document.getElementById('menu');
         const gameContainer = document.getElementById('gameContainer');
         const createBtn = document.getElementById('createBtn');
@@ -116,7 +116,7 @@
         const nameInput = document.getElementById('nameInput');
         const roomInput = document.getElementById('roomInput');
         const displayCode = document.getElementById('displayCode');
-        const roomDisplayContainer = document.getElementById('roomDisplayContainer');
+        const roomDisplayArea = document.getElementById('roomDisplayArea');
         const statusText = document.getElementById('statusText');
         const readyBtn = document.getElementById('readyBtn');
         const rematchBtn = document.getElementById('rematchBtn');
@@ -131,7 +131,7 @@
         let obstacleX = 800;
         let isGameRunning = false;
         let isHost = false;
-        let gameMode = null;
+        let isMultiplayerMode = false;
 
         // Physics Configurations
         let myY = 200;
@@ -142,62 +142,30 @@
         let myScore = 0;
         let myIsDead = false;
 
-        // Optimized Execution Logic for Intro Animation Sequences
-        function startIntroSequence() {
+        // Intro Scene Sequencing logic
+        window.addEventListener('DOMContentLoaded', () => {
             const splash = document.getElementById('splashScreen');
             const company = document.getElementById('companyBrand');
             const gameTitle = document.getElementById('gameBrand');
             const mainApp = document.getElementById('appContent');
+            setTimeout(() => company.classList.add('animate-intro-in'), 300);
+            setTimeout(() => { company.classList.remove('animate-intro-in'); company.classList.add('animate-intro-out'); }, 1800);
+            setTimeout(() => { company.classList.add('hidden'); gameTitle.classList.remove('hidden'); gameTitle.classList.add('animate-intro-in'); }, 2500);
+            setTimeout(() => { gameTitle.classList.remove('animate-intro-in'); gameTitle.classList.add('animate-intro-out'); }, 4000);
+            setTimeout(() => { splash.classList.add('hidden'); mainApp.classList.remove('opacity-0'); }, 4600);
+        });
 
-            if (!splash || !company || !gameTitle || !mainApp) return;
-
-            // 1. Fade company brand in
-            company.classList.add('animate-intro-in');
-
-            // 2. Clear company out
-            setTimeout(() => {
-                company.classList.remove('animate-intro-in');
-                company.classList.add('animate-intro-out');
-            }, 1500);
-
-            // 3. Bring game brand card forward
-            setTimeout(() => {
-                company.classList.add('hidden');
-                gameTitle.classList.remove('hidden');
-                gameTitle.classList.add('animate-intro-in');
-            }, 2300);
-
-            // 4. Fade game brand card out
-            setTimeout(() => {
-                gameTitle.classList.remove('animate-intro-in');
-                gameTitle.classList.add('animate-intro-out');
-            }, 3600);
-
-            // 5. Completely drop splash and unlock main interface interaction paths
-            setTimeout(() => {
-                splash.style.display = 'none';
-                mainApp.classList.remove('opacity-0');
-            }, 4300);
-        }
-
-        // Direct binding to window load sequences
-        if (document.readyState === 'complete') {
-            startIntroSequence();
-        } else {
-            window.addEventListener('load', startIntroSequence);
-        }
-
-        // Mode Screen Actions
-        singlePlayerBtn.onclick = () => {
-            gameMode = 'single';
+        // Mode Navigation Selection Handlers
+        singleBtn.onclick = () => {
+            isMultiplayerMode = false;
             modeMenu.classList.add('hidden');
             gameContainer.classList.remove('hidden');
-            roomDisplayContainer.classList.add('hidden');
-            startSinglePlayerGame();
+            roomDisplayArea.classList.add('hidden');
+            initSinglePlayer();
         };
 
-        multiplayerBtn.onclick = () => {
-            gameMode = 'multi';
+        multiBtn.onclick = () => {
+            isMultiplayerMode = true;
             modeMenu.classList.add('hidden');
             menu.classList.remove('hidden');
         };
@@ -226,30 +194,29 @@
         singleRestartBtn.onclick = (e) => {
             e.stopPropagation();
             singleRestartBtn.classList.add('hidden');
-            startSinglePlayerGame();
+            initSinglePlayer();
         };
-
         window.addEventListener('touchstart', (e) => { if(isGameRunning && !myIsDead && myY === groundY) velocity = jumpStrength; });
 
         function generateCode() { return Math.random().toString(36).substring(2, 6).toUpperCase(); }
 
-        // --- SINGLE PLAYER LOGIC BRANCH ---
-        function startSinglePlayerGame() {
+        // Local Single Player Core Game Mode Routines
+        function initSinglePlayer() {
             players = {};
             players[myId] = { id: myId, name: "PLAYER", x: 50, y: 200, score: 0, isDead: false };
             obstacleX = 800;
-            myIsDead = false;
-            myScore = 0;
             myY = groundY;
             velocity = 0;
+            myScore = 0;
+            myIsDead = false;
             isGameRunning = true;
-            statusText.innerText = "SINGLE PLAYER MATCH";
+            statusText.innerText = "SINGLE PLAYER";
             mobileHint.classList.remove('hidden');
             singlePlayerLoop();
         }
 
         function singlePlayerLoop() {
-            if (!isGameRunning || gameMode !== 'single') return;
+            if (!isGameRunning || isMultiplayerMode) return;
 
             velocity += gravity;
             myY += velocity;
@@ -275,7 +242,6 @@
             if (isGameRunning) requestAnimationFrame(singlePlayerLoop);
         }
 
-        // --- MULTIPLAYER LOGIC BRANCH ---
         async function createRoom() {
             roomCode = generateCode();
             isHost = true;
@@ -318,13 +284,14 @@
         function listenToRoom() {
             onValue(ref(db, `rooms/${roomCode}`), (snapshot) => {
                 const data = snapshot.val();
-                if (!data || gameMode !== 'multi') return;
+                if (!data || !isMultiplayerMode) return;
 
                 players = data.players || {};
                 obstacleX = data.obstacleX;
 
                 const playerIds = Object.keys(players);
                 
+                // Track Dynamic Rematch Actions
                 if (data.gameStarted === false && isGameRunning === false) {
                     const activePlayersList = Object.values(players);
                     if (activePlayersList.length === 2) {
@@ -332,6 +299,7 @@
                         const opponentPlayerNode = activePlayersList.find(p => p.id !== myId);
 
                         if (myPlayerNode && opponentPlayerNode) {
+                            // Check if opponent requested first
                             if (opponentPlayerNode.wantsRematch && !myPlayerNode.wantsRematch) {
                                 rematchBtn.classList.remove('hidden');
                                 rematchBtn.innerText = `${opponentPlayerNode.name} WANTS A REMATCH! TAP TO ACCEPT`;
@@ -340,6 +308,7 @@
                                 rematchBtn.innerText = "REQUEST REMATCH";
                             }
 
+                            // Trigger Rematch Session Reset if both parties opted in
                             if (myPlayerNode.wantsRematch && opponentPlayerNode.wantsRematch) {
                                 rematchBtn.classList.add('hidden');
                                 rematchBtn.classList.remove('opacity-50', 'pointer-events-none');
@@ -351,6 +320,7 @@
                                 statusText.innerText = "🔴 LIVE MATCH";
                                 if (isHost) {
                                     update(ref(db, `rooms/${roomCode}`), { gameStarted: true });
+                                    // Flush ready configurations safely inside host container
                                     activePlayersList.forEach(p => {
                                         update(ref(db, `rooms/${roomCode}/players/${p.id}`), { wantsRematch: false, isDead: false, score: 0, y: 200 });
                                     });
@@ -363,6 +333,8 @@
 
                 if (playerIds.length === 2 && !isGameRunning && !data.gameStarted) {
                     const allReady = Object.values(players).every(p => p.isReady);
+                    
+                    // Simple initial ready UI display logic block
                     const myPlayerNode = players[myId];
                     if (myPlayerNode && !myPlayerNode.isReady && !myPlayerNode.wantsRematch) {
                         readyBtn.classList.remove('hidden');
@@ -382,6 +354,7 @@
                     }
                 }
 
+                // Global game over handle
                 if (data.gameStarted && Object.values(players).every(p => p.isDead) && isGameRunning) {
                     isGameRunning = false;
                     statusText.innerText = "GAME OVER!";
@@ -392,10 +365,25 @@
         }
 
         function gameLoop() {
-            if (!isGameRunning || gameMode !== 'multi') return;
+            if (!isGameRunning || !isMultiplayerMode) return;
 
             if (!myIsDead) {
                 velocity += gravity;
                 myY += velocity;
                 if (myY > groundY) { myY = groundY; velocity = 0; }
-                mySc
+                myScore++;
+
+                if (obstacleX < 70 && obstacleX > 30 && myY > 170) {
+                    myIsDead = true;
+                    statusText.innerText = "SPECTATING OPPONENT...";
+                }
+            }
+
+            // Sync frame variables into database
+            update(ref(db, `rooms/${roomCode}/players/${myId}`), { y: myY, score: myScore, isDead: myIsDead });
+
+            // Host recalculates the obstacle's horizontal travel vector
+            if (isHost) {
+                let nextX = obstacleX - 5;
+                if (nextX < -30) nextX = 800 + Math.random() * 150;
+         
