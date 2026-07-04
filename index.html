@@ -81,15 +81,16 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // TODO: Replace with your actual Firebase project config credentials
+        // Your exact Firebase configuration with added databaseURL mapping
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            databaseURL: "YOUR_DATABASE_URL",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyCAmVSx7u_qETnBwlmiQkcfXmGNpiYCRxM",
+            authDomain: "sync-runner.firebaseapp.com",
+            databaseURL: "https://sync-runner-default-rtdb.firebaseio.com",
+            projectId: "sync-runner",
+            storageBucket: "sync-runner.firebasestorage.app",
+            messagingSenderId: "824002855664",
+            appId: "1:824002855664:web:bc6183f533d742bac97835",
+            measurementId: "G-5HL2ZL9M5N"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -109,7 +110,7 @@
         const ctx = canvas.getContext('2d');
 
         let roomCode = null;
-        let myId = Math.random().toString(36).substring(2, 9); // Generate unique ID for this player session
+        let myId = Math.random().toString(36).substring(2, 9);
         let players = {};
         let obstacleX = 800;
         let isGameRunning = false;
@@ -274,7 +275,7 @@
                 ctx.shadowBlur = p.isDead ? 0 : 12;
 
                 if (!p.isDead) {
-                    ctx.fillRect(isMe ? 50 : 90, p.y, 22, 30); // Host sits slightly back from Peer horizontally
+                    ctx.fillRect(isMe ? 50 : 90, p.y, 22, 30);
                     ctx.fillStyle = '#9ca3af'; ctx.shadowBlur = 0; ctx.font = 'bold 11px sans-serif';
                     ctx.fillText(isMe ? `You: ${p.score}` : `Peer: ${p.score}`, (isMe ? 50 : 90) - 10, p.y - 12);
                 } else {
