@@ -143,4 +143,4 @@ function gameLoop() {
 
     draw();
     requestAnimationFrame(gameLoop);
-                                        }
+}
