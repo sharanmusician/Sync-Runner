@@ -49,7 +49,13 @@
     <div id="appContent" class="opacity-0 w-full flex flex-col items-center my-auto space-y-6 max-w-xl transition-opacity duration-1000">
         <h1 class="text-xl font-black tracking-[0.3em] text-indigo-500 uppercase text-center">Sync Runner</h1>
 
-        <div id="menu" class="w-full max-w-sm bg-gray-900/60 backdrop-blur-md p-6 rounded-2xl border border-gray-800/80 text-center space-y-4 shadow-2xl">
+        <div id="modeMenu" class="w-full max-w-sm bg-gray-900/60 backdrop-blur-md p-6 rounded-2xl border border-gray-800/80 text-center space-y-4 shadow-2xl">
+            <h3 class="text-sm font-bold tracking-widest text-gray-400 uppercase mb-2">Select Game Mode</h3>
+            <button id="singlePlayerBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-4 rounded-xl font-bold tracking-wider uppercase active:scale-95 transition-all shadow-lg shadow-indigo-600/10">Single Player</button>
+            <button id="multiplayerBtn" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white py-4 rounded-xl font-bold tracking-wider uppercase active:scale-95 transition-all shadow-lg shadow-purple-600/10">Multiplayer</button>
+        </div>
+
+        <div id="menu" class="hidden w-full max-w-sm bg-gray-900/60 backdrop-blur-md p-6 rounded-2xl border border-gray-800/80 text-center space-y-4 shadow-2xl">
             <input id="nameInput" type="text" maxlength="12" placeholder="ENTER YOUR NAME" class="w-full bg-gray-950 border border-gray-800 px-4 py-3 rounded-xl focus:outline-none focus:border-indigo-500 text-center uppercase tracking-wider font-bold text-gray-200 placeholder:text-gray-600 mb-2">
             
             <button id="createBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl font-semibold tracking-wide active:scale-95 transition-transform">Create Room</button>
@@ -66,7 +72,7 @@
 
         <div id="gameContainer" class="hidden flex flex-col items-center space-y-4 w-full">
             <div class="flex justify-between w-full bg-gray-900/40 border border-gray-800/60 px-4 py-3 rounded-xl text-xs tracking-wider">
-                <div class="text-gray-400">ROOM: <span id="displayCode" class="font-bold text-indigo-400">----</span></div>
+                <div id="roomDisplayContainer" class="text-gray-400">ROOM: <span id="displayCode" class="font-bold text-indigo-400">----</span></div>
                 <div id="statusText" class="text-gray-400 font-bold uppercase text-right">Waiting for players...</div>
             </div>
             <div class="w-full overflow-hidden">
@@ -75,6 +81,7 @@
             <div class="w-full flex flex-col gap-3">
                 <button id="readyBtn" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-black tracking-[0.15em] uppercase active:scale-95 transition-transform hidden">TAP TO READY UP</button>
                 <button id="rematchBtn" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-xl font-black tracking-[0.15em] uppercase active:scale-95 transition-transform hidden">REQUEST REMATCH</button>
+                <button id="singleRestartBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-black tracking-[0.15em] uppercase active:scale-95 transition-transform hidden">PLAY AGAIN</button>
             </div>
             <p id="mobileHint" class="text-xs text-gray-500 hidden text-center tracking-widest uppercase animate-pulse">Tap screen to jump</p>
         </div>
@@ -99,6 +106,9 @@
         const db = getDatabase(app);
 
         // Core Game elements
+        const modeMenu = document.getElementById('modeMenu');
+        const singlePlayerBtn = document.getElementById('singlePlayerBtn');
+        const multiplayerBtn = document.getElementById('multiplayerBtn');
         const menu = document.getElementById('menu');
         const gameContainer = document.getElementById('gameContainer');
         const createBtn = document.getElementById('createBtn');
@@ -106,9 +116,11 @@
         const nameInput = document.getElementById('nameInput');
         const roomInput = document.getElementById('roomInput');
         const displayCode = document.getElementById('displayCode');
+        const roomDisplayContainer = document.getElementById('roomDisplayContainer');
         const statusText = document.getElementById('statusText');
         const readyBtn = document.getElementById('readyBtn');
         const rematchBtn = document.getElementById('rematchBtn');
+        const singleRestartBtn = document.getElementById('singleRestartBtn');
         const mobileHint = document.getElementById('mobileHint');
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -119,6 +131,7 @@
         let obstacleX = 800;
         let isGameRunning = false;
         let isHost = false;
+        let gameMode = null; // 'single' or 'multi'
 
         // Physics Configurations
         let myY = 200;
@@ -142,6 +155,21 @@
             setTimeout(() => { splash.classList.add('hidden'); mainApp.classList.remove('opacity-0'); }, 4600);
         });
 
+        // Mode Screen Actions
+        singlePlayerBtn.onclick = () => {
+            gameMode = 'single';
+            modeMenu.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            roomDisplayContainer.classList.add('hidden'); // Hide room string for single player
+            startSinglePlayerGame();
+        };
+
+        multiplayerBtn.onclick = () => {
+            gameMode = 'multi';
+            modeMenu.classList.add('hidden');
+            menu.classList.remove('hidden');
+        };
+
         // Setup Event Listeners
         createBtn.onclick = () => {
             if(!nameInput.value.trim()) { alert("PLEASE ENTER YOUR NAME FIRST!"); return; }
@@ -163,10 +191,61 @@
             rematchBtn.classList.add('opacity-50', 'pointer-events-none');
             rematchBtn.innerText = "WAITING FOR OPPONENT...";
         };
+        singleRestartBtn.onclick = (e) => {
+            e.stopPropagation();
+            singleRestartBtn.classList.add('hidden');
+            startSinglePlayerGame();
+        };
+
         window.addEventListener('touchstart', (e) => { if(isGameRunning && !myIsDead && myY === groundY) velocity = jumpStrength; });
 
         function generateCode() { return Math.random().toString(36).substring(2, 6).toUpperCase(); }
 
+        // --- SINGLE PLAYER LOGIC BRANCH ---
+        function startSinglePlayerGame() {
+            players = {};
+            players[myId] = { id: myId, name: "PLAYER", x: 50, y: 200, score: 0, isDead: false };
+            obstacleX = 800;
+            myIsDead = false;
+            myScore = 0;
+            myY = groundY;
+            velocity = 0;
+            isGameRunning = true;
+            statusText.innerText = "SINGLE PLAYER MATCH";
+            mobileHint.classList.remove('hidden');
+            singlePlayerLoop();
+        }
+
+        function singlePlayerLoop() {
+            if (!isGameRunning || gameMode !== 'single') return;
+
+            velocity += gravity;
+            myY += velocity;
+            if (myY > groundY) { myY = groundY; velocity = 0; }
+            myScore++;
+
+            // Handle local obstacle movement vector
+            obstacleX -= 5;
+            if (obstacleX < -30) obstacleX = 800 + Math.random() * 150;
+
+            // Update parameters for rendering engine
+            players[myId].y = myY;
+            players[myId].score = myScore;
+
+            if (obstacleX < 70 && obstacleX > 30 && myY > 170) {
+                isGameRunning = false;
+                myIsDead = true;
+                players[myId].isDead = true;
+                statusText.innerText = `GAME OVER! SCORE: ${myScore}`;
+                mobileHint.classList.add('hidden');
+                singleRestartBtn.classList.remove('hidden');
+            }
+
+            draw();
+            if (isGameRunning) requestAnimationFrame(singlePlayerLoop);
+        }
+
+        // --- MULTIPLAYER LOGIC BRANCH ---
         async function createRoom() {
             roomCode = generateCode();
             isHost = true;
@@ -209,7 +288,7 @@
         function listenToRoom() {
             onValue(ref(db, `rooms/${roomCode}`), (snapshot) => {
                 const data = snapshot.val();
-                if (!data) return;
+                if (!data || gameMode !== 'multi') return;
 
                 players = data.players || {};
                 obstacleX = data.obstacleX;
@@ -224,7 +303,6 @@
                         const opponentPlayerNode = activePlayersList.find(p => p.id !== myId);
 
                         if (myPlayerNode && opponentPlayerNode) {
-                            // Check if opponent requested first
                             if (opponentPlayerNode.wantsRematch && !myPlayerNode.wantsRematch) {
                                 rematchBtn.classList.remove('hidden');
                                 rematchBtn.innerText = `${opponentPlayerNode.name} WANTS A REMATCH! TAP TO ACCEPT`;
@@ -233,7 +311,6 @@
                                 rematchBtn.innerText = "REQUEST REMATCH";
                             }
 
-                            // Trigger Rematch Session Reset if both parties opted in
                             if (myPlayerNode.wantsRematch && opponentPlayerNode.wantsRematch) {
                                 rematchBtn.classList.add('hidden');
                                 rematchBtn.classList.remove('opacity-50', 'pointer-events-none');
@@ -245,7 +322,6 @@
                                 statusText.innerText = "🔴 LIVE MATCH";
                                 if (isHost) {
                                     update(ref(db, `rooms/${roomCode}`), { gameStarted: true });
-                                    // Flush ready configurations safely inside host container
                                     activePlayersList.forEach(p => {
                                         update(ref(db, `rooms/${roomCode}/players/${p.id}`), { wantsRematch: false, isDead: false, score: 0, y: 200 });
                                     });
@@ -258,8 +334,6 @@
 
                 if (playerIds.length === 2 && !isGameRunning && !data.gameStarted) {
                     const allReady = Object.values(players).every(p => p.isReady);
-                    
-                    // Simple initial ready UI display logic block
                     const myPlayerNode = players[myId];
                     if (myPlayerNode && !myPlayerNode.isReady && !myPlayerNode.wantsRematch) {
                         readyBtn.classList.remove('hidden');
@@ -279,7 +353,6 @@
                     }
                 }
 
-                // Global game over handle
                 if (data.gameStarted && Object.values(players).every(p => p.isDead) && isGameRunning) {
                     isGameRunning = false;
                     statusText.innerText = "GAME OVER!";
@@ -290,7 +363,7 @@
         }
 
         function gameLoop() {
-            if (!isGameRunning) return;
+            if (!isGameRunning || gameMode !== 'multi') return;
 
             if (!myIsDead) {
                 velocity += gravity;
@@ -304,51 +377,10 @@
                 }
             }
 
-            // Sync frame variables into database
             update(ref(db, `rooms/${roomCode}/players/${myId}`), { y: myY, score: myScore, isDead: myIsDead });
 
-            // Host recalculates the obstacle's horizontal travel vector
             if (isHost) {
                 let nextX = obstacleX - 5;
                 if (nextX < -30) nextX = 800 + Math.random() * 150;
                 update(ref(db, `rooms/${roomCode}`), { obstacleX: nextX });
-            }
-
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#374151'; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.moveTo(0, 230); ctx.lineTo(canvas.width, 230); ctx.stroke();
-
-            // Neon Obstacle
-            ctx.fillStyle = '#ef4444'; ctx.shadowBlur = 10; ctx.shadowColor = '#ef4444';
-            ctx.fillRect(obstacleX, 190, 22, 40);
-
-            // Render active game units
-            Object.values(players).forEach(p => {
-                const isMe = p.id === myId;
-                ctx.fillStyle = isMe ? '#6366f1' : '#10b981';
-                ctx.shadowColor = isMe ? '#6366f1' : '#10b981';
-                ctx.shadowBlur = p.isDead ? 0 : 12;
-
-                // Explicit fallback string configuration for names if database handles are still structural
-                const renderingName = p.name ? p.name : "PLAYER";
-
-                if (!p.isDead) {
-                    ctx.fillRect(isMe ? 50 : 90, p.y, 22, 30);
-                    ctx.fillStyle = '#9ca3af'; ctx.shadowBlur = 0; ctx.font = 'bold 11px sans-serif';
-                    ctx.fillText(`${renderingName}: ${p.score}`, (isMe ? 50 : 90) - 10, p.y - 12);
-                } else {
-                    ctx.strokeStyle = isMe ? 'rgba(99, 102, 241, 0.25)' : 'rgba(16, 185, 129, 0.25)';
-                    ctx.shadowBlur = 0; ctx.strokeRect(isMe ? 50 : 90, 210, 22, 20);
-                }
-            });
-            ctx.shadowBlur = 0;
-        }
-    </script>
-</body>
-    </html>
-    
+   
