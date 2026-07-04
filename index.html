@@ -37,7 +37,7 @@
 
     <div id="splashScreen" class="fixed inset-0 bg-[#05070f] z-50 flex flex-col items-center justify-center space-y-6 px-4">
         <div id="companyBrand" class="opacity-0 flex flex-col items-center space-y-3">
-            <img src="Logo.png" alt="Aethercore Interactive Logo" class="w-24 h-24 object-contain rounded-xl shadow-2xl">
+            <img src="Logo.png" alt="Aethercore Interactive" onerror="this.style.display='none';" class="w-24 h-24 object-contain rounded-xl shadow-2xl">
             <h2 class="text-xs font-bold uppercase tracking-[0.4em] text-gray-500">Aethercore Interactive</h2>
         </div>
         <div id="gameBrand" class="opacity-0 hidden flex flex-col items-center">
@@ -131,7 +131,7 @@
         let obstacleX = 800;
         let isGameRunning = false;
         let isHost = false;
-        let gameMode = null; // 'single' or 'multi'
+        let gameMode = null;
 
         // Physics Configurations
         let myY = 200;
@@ -142,25 +142,57 @@
         let myScore = 0;
         let myIsDead = false;
 
-        // Intro Scene Sequencing logic
-        window.addEventListener('DOMContentLoaded', () => {
+        // Optimized Execution Logic for Intro Animation Sequences
+        function startIntroSequence() {
             const splash = document.getElementById('splashScreen');
             const company = document.getElementById('companyBrand');
             const gameTitle = document.getElementById('gameBrand');
             const mainApp = document.getElementById('appContent');
-            setTimeout(() => company.classList.add('animate-intro-in'), 300);
-            setTimeout(() => { company.classList.remove('animate-intro-in'); company.classList.add('animate-intro-out'); }, 1800);
-            setTimeout(() => { company.classList.add('hidden'); gameTitle.classList.remove('hidden'); gameTitle.classList.add('animate-intro-in'); }, 2500);
-            setTimeout(() => { gameTitle.classList.remove('animate-intro-in'); gameTitle.classList.add('animate-intro-out'); }, 4000);
-            setTimeout(() => { splash.classList.add('hidden'); mainApp.classList.remove('opacity-0'); }, 4600);
-        });
+
+            if (!splash || !company || !gameTitle || !mainApp) return;
+
+            // 1. Fade company brand in
+            company.classList.add('animate-intro-in');
+
+            // 2. Clear company out
+            setTimeout(() => {
+                company.classList.remove('animate-intro-in');
+                company.classList.add('animate-intro-out');
+            }, 1500);
+
+            // 3. Bring game brand card forward
+            setTimeout(() => {
+                company.classList.add('hidden');
+                gameTitle.classList.remove('hidden');
+                gameTitle.classList.add('animate-intro-in');
+            }, 2300);
+
+            // 4. Fade game brand card out
+            setTimeout(() => {
+                gameTitle.classList.remove('animate-intro-in');
+                gameTitle.classList.add('animate-intro-out');
+            }, 3600);
+
+            // 5. Completely drop splash and unlock main interface interaction paths
+            setTimeout(() => {
+                splash.style.display = 'none';
+                mainApp.classList.remove('opacity-0');
+            }, 4300);
+        }
+
+        // Direct binding to window load sequences
+        if (document.readyState === 'complete') {
+            startIntroSequence();
+        } else {
+            window.addEventListener('load', startIntroSequence);
+        }
 
         // Mode Screen Actions
         singlePlayerBtn.onclick = () => {
             gameMode = 'single';
             modeMenu.classList.add('hidden');
             gameContainer.classList.remove('hidden');
-            roomDisplayContainer.classList.add('hidden'); // Hide room string for single player
+            roomDisplayContainer.classList.add('hidden');
             startSinglePlayerGame();
         };
 
@@ -224,11 +256,9 @@
             if (myY > groundY) { myY = groundY; velocity = 0; }
             myScore++;
 
-            // Handle local obstacle movement vector
             obstacleX -= 5;
             if (obstacleX < -30) obstacleX = 800 + Math.random() * 150;
 
-            // Update parameters for rendering engine
             players[myId].y = myY;
             players[myId].score = myScore;
 
@@ -295,7 +325,6 @@
 
                 const playerIds = Object.keys(players);
                 
-                // Track Dynamic Rematch Actions
                 if (data.gameStarted === false && isGameRunning === false) {
                     const activePlayersList = Object.values(players);
                     if (activePlayersList.length === 2) {
@@ -369,18 +398,4 @@
                 velocity += gravity;
                 myY += velocity;
                 if (myY > groundY) { myY = groundY; velocity = 0; }
-                myScore++;
-
-                if (obstacleX < 70 && obstacleX > 30 && myY > 170) {
-                    myIsDead = true;
-                    statusText.innerText = "SPECTATING OPPONENT...";
-                }
-            }
-
-            update(ref(db, `rooms/${roomCode}/players/${myId}`), { y: myY, score: myScore, isDead: myIsDead });
-
-            if (isHost) {
-                let nextX = obstacleX - 5;
-                if (nextX < -30) nextX = 800 + Math.random() * 150;
-                update(ref(db, `rooms/${roomCode}`), { obstacleX: nextX });
-   
+                mySc
